@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patria Grande - Juego de Memoria</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .game-info {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .score, .moves {
+            background: rgba(255,255,255,0.1);
+            padding: 10px 20px;
+            border-radius: 25px;
+            backdrop-filter: blur(10px);
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(4, 120px);
+            grid-template-rows: repeat(4, 120px);
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 3px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+
+        .card.flipped {
+            background: linear-gradient(45deg, #74b9ff, #0dff92);
+            transform: rotateY(180deg);
+        }
+
+        .card.matched {
+            background: linear-gradient(45deg, #00b894, #00cec9);
+            border-color: #fdcb6e;
+            animation: pulse 0.6s ease-in-out;
+        }
+
+        .card-back {
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .card-front {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: rotateY(180deg);
+            backface-visibility: hidden;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+        }
+
+        button {
+            background: linear-gradient(45deg, #fd79a8, #fdcb6e);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .win-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(45deg, #00b894, #00cec9);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        .win-message h2 {
+            font-size: 2em;
+            margin-bottom: 15px;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            z-index: 999;
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay" id="overlay"></div>
+    
+    <div class="header">
+        <h1>🌎 Patria Grande 🌎</h1>
+        <p>Juego de Memoria - Encuentra los pares</p>
+    </div>
+
+    <div class="game-info">
+        <div class="score">
+            Pares encontrados: <span id="score">0</span>/8
+        </div>
+        <div class="moves">
+            Movimientos: <span id="moves">0</span>
+        </div>
+    </div>
+
+    <div class="game-board" id="gameBoard"></div>
+
+    <div class="controls">
+        <button onclick="resetGame()">🔄 Nuevo Juego</button>
+        <button onclick="showInstructions()">❓ Instrucciones</button>
+    </div>
+
+    <div class="win-message" id="winMessage">
+        <h2>🎉 ¡Felicitaciones! 🎉</h2>
+        <p>Has completado el juego en <span id="finalMoves"></span> movimientos</p>
+        <button onclick="resetGame()" style="margin-top: 15px;">Jugar de nuevo</button>
+    </div>
+
+    <script>
+        // Game symbols representing Latin American culture
+        const symbols = ['🇦🇷', '🇧🇷', '🇲🇽', '🇨🇴', '🇵🇪', '🇨🇱', '🇺🇾', '🇵🇾'];
+        let cards = [];
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let moves = 0;
+        let gameStarted = false;
+
+        function initializeGame() {
+            // Create pairs of symbols
+            const gameSymbols = [...symbols, ...symbols];
+            
+            // Shuffle the symbols
+            for (let i = gameSymbols.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [gameSymbols[i], gameSymbols[j]] = [gameSymbols[j], gameSymbols[i]];
+            }
+
+            // Clear the game board
+            const gameBoard = document.getElementById('gameBoard');
+            gameBoard.innerHTML = '';
+            cards = [];
+
+            // Create cards
+            gameSymbols.forEach((symbol, index) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.dataset.symbol = symbol;
+                card.dataset.index = index;
+                card.innerHTML = `
+                    <div class="card-back">🌟</div>
+                    <div class="card-front">${symbol}</div>
+                `;
+                card.addEventListener('click', flipCard);
+                gameBoard.appendChild(card);
+                cards.push(card);
+            });
+
+            // Reset game state
+            flippedCards = [];
+            matchedPairs = 0;
+            moves = 0;
+            gameStarted = false;
+            updateDisplay();
+        }
+
+        function flipCard() {
+            if (!gameStarted) gameStarted = true;
+            
+            const card = this;
+            
+            // Don't flip if card is already flipped or matched
+            if (card.classList.contains('flipped') || card.classList.contains('matched')) {
+                return;
+            }
+
+            // Don't flip if two cards are already flipped
+            if (flippedCards.length >= 2) {
+                return;
+            }
+
+            // Flip the card
+            card.classList.add('flipped');
+            flippedCards.push(card);
+
+            // Check for match when two cards are flipped
+            if (flippedCards.length === 2) {
+                moves++;
+                updateDisplay();
+                
+                const card1 = flippedCards[0];
+                const card2 = flippedCards[1];
+
+                if (card1.dataset.symbol === card2.dataset.symbol) {
+                    // Match found
+                    setTimeout(() => {
+                        card1.classList.add('matched');
+                        card2.classList.add('matched');
+                        card1.classList.remove('flipped');
+                        card2.classList.remove('flipped');
+                        flippedCards = [];
+                        matchedPairs++;
+                        updateDisplay();
+                        
+                        // Check for win condition
+                        if (matchedPairs === 8) {
+                            setTimeout(() => showWinMessage(), 500);
+                        }
+                    }, 500);
+                } else {
+                    // No match
+                    setTimeout(() => {
+                        card1.classList.remove('flipped');
+                        card2.classList.remove('flipped');
+                        flippedCards = [];
+                    }, 1000);
+                }
+            }
+        }
+
+        function updateDisplay() {
+            document.getElementById('score').textContent = matchedPairs;
+            document.getElementById('moves').textContent = moves;
+        }
+
+        function showWinMessage() {
+            document.getElementById('finalMoves').textContent = moves;
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('winMessage').style.display = 'block';
+        }
+
+        function resetGame() {
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('winMessage').style.display = 'none';
+            initializeGame();
+        }
+
+        function showInstructions() {
+            alert(`🎮 INSTRUCCIONES DEL JUEGO 🎮
+
+🌟 Haz clic en las cartas para voltearlas
+🌟 Encuentra las banderas que forman pareja
+🌟 Solo puedes voltear 2 cartas a la vez
+🌟 Memoriza las posiciones para hacer menos movimientos
+🌟 ¡Encuentra los 8 pares para ganar!
+
+¡Que disfrutes este viaje por la Patria Grande! 🌎`);
+        }
+
+        // Initialize the game when page loads
+        window.addEventListener('load', initializeGame);
+    </script>
+</body>
+</html>
